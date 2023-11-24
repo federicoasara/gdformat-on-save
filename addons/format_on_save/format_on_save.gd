@@ -102,9 +102,11 @@ func format(script: Script) -> void:
 	var exit_code := OS.execute("gdformat", [ProjectSettings.globalize_path(temp)])
 	if exit_code == SUCCESS:
 		var formatted_source := FileAccess.get_file_as_string(temp)
-		var save_successful = if_token_valid(token, func(): reload_script(formatted_source))
+		var save_successful = if_token_valid(token, func(): reload_script(script, formatted_source))
 		if not save_successful:
-			push_warning("format_on_save: found new revision of %s after formatting")
+			push_warning(
+				"format_on_save: found new revision of %s after formatting. Formatting aborted."
+			)
 	else:
 		push_error("format_on_save: encountered error %d while formatting %s" % [exit_code, source])
 
@@ -114,7 +116,17 @@ func format(script: Script) -> void:
 # Workaround until this PR is merged:
 # https://github.com/godotengine/godot/pull/83267
 # Thanks, @KANAjetzt 💖
-func reload_script(source_code: String) -> void:
+func reload_script(script: Script, source_code: String) -> void:
+	var current_script := get_editor_interface().get_script_editor().get_current_script()
+	if current_script.resource_path != script.resource_path:
+		push_warning(
+			(
+				"format_on_save: current editor is on %s but formatted %s. Formatting aborted."
+				% [current_script.resource_path, script.resource_path]
+			)
+		)
+		return
+
 	var code_edit := (
 		get_editor_interface().get_script_editor().get_current_editor().get_base_editor()
 		as CodeEdit
